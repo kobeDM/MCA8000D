@@ -783,9 +783,7 @@ if __name__ == '__main__':
     influx_thread1=threading.Thread(target=post_to_influx,args=(rate_filename[1],"NaI","daemon"),daemon=True)
     influx_thread1.start()
     
-
-
-    exit_code=code=mca8000d()
+    exit_code=mca8000d()
     #exit_code=0
     if (verbose):
         print("exit_code",exit_code)
