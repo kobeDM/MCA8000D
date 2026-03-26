@@ -43,12 +43,18 @@ HEADER_SIZE=12
 FOOTTER_SIZE=70
 
 CONFIG = "MCA_config.json"
+tmpfile="../tmp.mca"
+ROOT="/opt/root/6.32.08/bin/root"
+SPECMONMACRO="/home/msgc/MCA8000D/root_macros/MonMCA.C"
+
+
 detector=['','']
 MCAchannel=[0,0]
 threshold=[0,0]
 dynamicrange=[0,0]
 ROI=[[[0,0],[0,0],[0,0],[0,0],[0,0]],[[0,0],[0,0],[0,0],[0,0],[0,0]]]
 SN=[0,0]
+active=[False,False]
 
 rate_filename=['','']
 presettime=0
@@ -78,15 +84,42 @@ def key_monitor():
             sys.stdout.write("s command was issued. Stopping the DAQ at the end of this file.")
             break
 
+def spec_monitor_kill(datadir):
+    print("spectrum monitor")
+    print(datadir)
+    tmpfile=datadir+"tmp./mca"
+    print(tmpfile)
+    #cmd='exec ' \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
+    print(cmd)
+    p=subprocess.Popen(cmd, shell=True)
+    print("subprocess:",p)
+    return p
+    #subprocess.run(cmd, shell=True)
 
+def spec_monitor_start(cmd):
+    print("spectrum monitor")
+    print(datadir)
+    tmpfile=datadir+"tmp./mca"
+    print(tmpfile)
+    cmd='exec /opt/root/6.32.08/bin/root \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
+    print(cmd)
+    p=subprocess.Popen(cmd, shell=True)
+    print("subprocess:",p)
+    return p
+    #subprocess.run(cmd, shell=True)
 
+    
 def post_to_influx(file,measurement,daemon):
+#def post_to_influx(file,measurement,daemon,host,port,database):
     from influxdb import InfluxDBClient
-    client = InfluxDBClient( host     = "10.37.0.214",port     = "8086",database= "miraclue" )
+    #client = InfluxDBClient( host     = "10.37.0.214",port     = "8086",database= "miraclue" )
+    #client = InfluxDBClient( host     = "10.37.0.170",port     = "8086",database= "miraclue" )
+    client = InfluxDBClient( host= host,port= port,database= database)
+    print(" influxdb server: ",host,":",port)
     if(not os.path.isfile(file)):
         cmd="touch "+file
         subprocess.run(cmd, shell=True)
-    #print(file,measurement)
+    print(file,measurement)
     while(1):
         with open(file,'r') as f:
             reader=csv.reader(f,delimiter='\t')
@@ -323,30 +356,33 @@ def createCfgString(cfg):
     return(cfgstring)
 
 def readConfig(filename):
-    global SN,detector,threshold,detector,MCAchannel,dynamicrange,ROI
+    global SN,detector,threshold,detector,MCAchannel,dynamicrange,ROI,host,port,database
     print("Reading config file ",filename)
     ID=0
     with open(filename) as f:
         d = json.load(f)
-        for MCAid in d['general']:
-            print(" MCA ID:",MCAid)
-            active=d['general'][MCAid]['active']
-            if (active):
-                detector[ID]=d['general'][MCAid]['detector']
-                SN[ID]=d['general'][MCAid]['SN']
-                threshold[ID]=d['general'][MCAid]['threshold']
-                MCAchannel[ID]=d['general'][MCAid]['MCAchannel']
-                dynamicrange[ID]=d['general'][MCAid]['dynamicrange']
-                ROI[ID][0][0]=d['general'][MCAid]['ROI0_min']
-                ROI[ID][0][1]=d['general'][MCAid]['ROI0_max']
-                ROI[ID][1][0]=d['general'][MCAid]['ROI1_min']
-                ROI[ID][1][1]=d['general'][MCAid]['ROI1_max']
-                ROI[ID][2][0]=d['general'][MCAid]['ROI2_min']
-                ROI[ID][2][1]=d['general'][MCAid]['ROI2_max']
-                ROI[ID][3][0]=d['general'][MCAid]['ROI3_min']
-                ROI[ID][3][1]=d['general'][MCAid]['ROI3_max']
-                ROI[ID][4][0]=d['general'][MCAid]['ROI4_min']
-                ROI[ID][4][1]=d['general'][MCAid]['ROI4_max']
+        host=d['INFLUXDB']['host']
+        port=d['INFLUXDB']['port']
+        database=d['INFLUXDB']['database']
+        for MCAid in d['MCA']:
+            active[ID]=d['MCA'][MCAid]['active']
+            print(" MCA ID:",MCAid,"(active:",active[ID],")")
+            if (active[ID]):
+                detector[ID]=d['MCA'][MCAid]['detector']
+                SN[ID]=d['MCA'][MCAid]['SN']
+                threshold[ID]=d['MCA'][MCAid]['threshold']
+                MCAchannel[ID]=d['MCA'][MCAid]['MCAchannel']
+                dynamicrange[ID]=d['MCA'][MCAid]['dynamicrange']
+                ROI[ID][0][0]=d['MCA'][MCAid]['ROI0_min']
+                ROI[ID][0][1]=d['MCA'][MCAid]['ROI0_max']
+                ROI[ID][1][0]=d['MCA'][MCAid]['ROI1_min']
+                ROI[ID][1][1]=d['MCA'][MCAid]['ROI1_max']
+                ROI[ID][2][0]=d['MCA'][MCAid]['ROI2_min']
+                ROI[ID][2][1]=d['MCA'][MCAid]['ROI2_max']
+                ROI[ID][3][0]=d['MCA'][MCAid]['ROI3_min']
+                ROI[ID][3][1]=d['MCA'][MCAid]['ROI3_max']
+                ROI[ID][4][0]=d['MCA'][MCAid]['ROI4_min']
+                ROI[ID][4][1]=d['MCA'][MCAid]['ROI4_max']
                 print("  detector:",detector[ID],end="")
                 print(", Serial Number:",SN[ID])
                 print("  threshold:", threshold[ID],end="")
@@ -355,7 +391,7 @@ def readConfig(filename):
                 print("  ROIs:",end="")
                 for ROIid in range(5):
                     print("(",ROI[ID][ROIid][0],":",ROI[ID][ROIid][1],"), ",end="")
-                ID=ID+1
+            ID=ID+1
     for i in range (2):
         rate_filename[i]='SN'+str(SN[i])+'_rate.dat'    
     
@@ -511,8 +547,10 @@ class device:
 
     def setdynamicrange(self, value):
         cmd = 'GAIA='+ str(value) + ";"
+        #cmd = 'GAIA=0.1;'
+        #print("set dynamicrange:",cmd)
         self.sendCmdConfig(cmd)
-
+        
         
     # start MCA MCS scan
     def enable_MCA_MCS(self):
@@ -637,10 +675,12 @@ def saveRates(filename,starttime, rate):
         #print(str(rate[i]),end="\t")
         fh.write("{}\t".format(str(rate[i])))
     fh.write("\n")
+    
 def mca8000d():
     global quit_flag,stop_flag
     global SN,detector,threshold,detector,MCAchannel,dynamicrange,ROI,presettime
     global rate_filename
+    global active
     rate=[[0,0,0,0,0],[0,0,0,0,0]]
 
     #sys.stdout.write('Find MCA8000D device\n')
@@ -657,44 +697,63 @@ def mca8000d():
     verbose=args.verbose
     #SN=args.serialnumber
 
+    #datadir=os.getcwd()
+    #cmd='exec /opt/root/6.32.08/bin/root \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
+    #print(cmd)
+    #p_spec_monitor=subprocess.Popen(cmd, shell=True)
+    
+    #p_spec_monitor.kill()
     filename=['','']
 
-    #scan 
-    dev = device(0)
-    status = dev.reqStatus()
-    thisSN=getSN(status)
-    if thisSN==SN[0]:
-        dev0=dev
-    elif thisSN==SN[1]:
-        dev1=dev
+    #scan
+    print("activity",active)
+    #p_spec_monitor.kill()
+    if active[0]:
+        print("device 0 check...")
+        dev = device(0)
+        status = dev.reqStatus()
+        thisSN=getSN(status)
+        #printStatus(status)
+        if thisSN==SN[0]:
+            dev0=dev
+        #elif thisSN==SN[1]:
+            #dev1=dev
 
-    dev = device(1)
-    status = dev.reqStatus()
-    thisSN=getSN(status)
-    if thisSN==SN[0]:
-        dev0=dev
-    elif thisSN==SN[1]:
-        dev1=dev
+    if active[1]:
+        print("device 1 check...")
+        dev = device(1)
+        status = dev.reqStatus()
+        thisSN=getSN(status)
+        if thisSN==SN[1]:
+            dev1=dev
+        #elif thisSN==SN[0]:
+            #dev0=dev
 
-    status0 = dev0.reqStatus()
-    status1 = dev1.reqStatus()
-    #thisSN=getSN(status1)
-    #print(" device 1: SN=",thisSN)
-
+    if active[0]:
+        status0 = dev0.reqStatus()
+        thisSN=getSN(status0)
+        print(" device 0: SN=",thisSN)
+    if active[1]:
+        status1 = dev1.reqStatus()
+        thisSN=getSN(status1)
+        print(" device 1: SN=",thisSN)
+    
     #printStatus(status)
-    if verbose:
-        print("\nHardware settings")
-        print(" device 0: SN=",getSN(status0))
-        print(" device 1: SN=",getSN(status1))
+    #if verbose:
+    #    print("\nHardware settings")
+    #    print(" device 0: SN=",getSN(status0))
+    #    print(" device 1: SN=",getSN(status1))
 
-
+    
     # if still running
-    if status0.MCA_EN :
-        sys.stdout.write('MCA8000D currently running... stopping now\n')
-        dev0.disable_MCA_MCS()
-    if status1.MCA_EN :
-        sys.stdout.write('MCA8000D currently running... stopping now\n')
-        dev1.disable_MCA_MCS()
+    if active[0]:
+        if status0.MCA_EN :
+            sys.stdout.write('MCA8000D currently running... stopping now\n')
+            dev0.disable_MCA_MCS()
+    if active[1]:
+        if status1.MCA_EN :
+            sys.stdout.write('MCA8000D currently running... stopping now\n')
+            dev1.disable_MCA_MCS()
     #sys.stdout.write('MCA8000D clearing\n')
     #dev.spectrum(True, True)
     sys.stdout.write('Preset time: '+str(presettime)+' \n')
@@ -702,28 +761,38 @@ def mca8000d():
     sys.stdout.write('taking data.\tpress "s" to stop after this file.\t Press "q" to quit.\n')
     #print(quit_flag,"in DAQ")
 
-    dev0.spectrum(True, True)
-    dev1.spectrum(True, True)
+    if active[0]:
+        #print("device setup 0")
+        dev0.spectrum(True, True)
+        dev0.setPresetTime(presettime)
+        dev0.setMCAchannel(MCAchannel[0]+1)
+        dev0.setthreshold(threshold[0])
+        dev0.setdynamicrange(dynamicrange[0])
 
-    dev0.setPresetTime(presettime)
-    dev1.setPresetTime(presettime)
-    dev0.setMCAchannel(MCAchannel[0]+1)
-    dev1.setMCAchannel(MCAchannel[1]+1)
-    dev0.setthreshold(threshold[0])
-    dev0.setdynamicrange(dynamicrange[0])
-    dev1.setthreshold(threshold[1])
-    dev1.setdynamicrange(dynamicrange[1])
 
+    if active[1]:
+        dev1.spectrum(True, True)
+        dev1.setPresetTime(presettime)
+        dev1.setMCAchannel(MCAchannel[1]+1)
+        dev1.setthreshold(threshold[1])
+        dev1.setdynamicrange(dynamicrange[1])
+    #p_spec_monitor.kill()    
     fileID=0
-
     while(fileID < num_file_per_period):
-        print(" file",fileID,"/",num_file_per_period,end="")
+        #print(" file",fileID,"/",num_file_per_period,end="")
         starttime = time.time()
-        dev0.enable_MCA_MCS()
-        dev1.enable_MCA_MCS()
-        status0=dev0.reqStatus()
-        status1=dev1.reqStatus()
-        while ((status0.RealTime/1000)<presettime ):
+        if active[0]:
+            dev0.enable_MCA_MCS()
+            status0=dev0.reqStatus()
+        if active[1]:
+            dev1.enable_MCA_MCS()
+            status1=dev1.reqStatus()
+        if active[0]:
+            currentrealtime=status0.RealTime/1000
+        elif  active[1]:
+            currentrealtime=status1.RealTime/1000
+        #while ((status0.RealTime/1000)<presettime ):
+        while ((currentrealtime)<presettime ):
             if quit_flag:
                 #sys.stdout.write("q command was issued. Quitting the DAQ.")
                 sys.stdout.flush()
@@ -734,43 +803,71 @@ def mca8000d():
                #print(str(status0.RealTime/1000))
                #sys.stdout.write('.')
                #sys.stdout.flush()
-            status0=dev0.reqStatus()
+            if active[0]:
+                status0=dev0.reqStatus()
+                currentrealtime=status0.RealTime/1000
+                if(int(status0.RealTime/1000)%10==0):
+                    print(" file:",fileID,"/",num_file_per_period,end="")
+                    print(" time:",str(int(status0.RealTime/1000)),"/",str(presettime),end="\r")
+                    #sys.stdout.flush()
+                spec0=dev0.spectrum(True, False) #keep the running data
+                saveSpectrum(tmpfile, spec0[0],status0,starttime,0)
+                    
+            elif  active[1]:
+                status1=dev1.reqStatus()
+                currentrealtime=status1.RealTime/1000
+                if(int(status1.RealTime/1000)%10==0):
+                    print(" file:",fileID,"/",num_file_per_period,end="")
+                    print(" time:",str(int(status1.RealTime/1000)),"/",str(presettime),end="\r")
+                #spec1=dev1.spectrum(True, True)
+                #saveSpectrum(tmpfile, spec1[0],status1,starttime,1)
+
         #
         #sys.stdout.write('\n')
         #sys.stdout.write(' done\n')
-        status0=dev0.reqStatus()
-        status1=dev1.reqStatus()
-        dev0.disable_MCA_MCS()
-        dev1.disable_MCA_MCS()
+        if active[0]:
+            status0=dev0.reqStatus()
+            dev0.disable_MCA_MCS()
+        if active[1]:
+            status1=dev1.reqStatus()
+            dev1.disable_MCA_MCS()
         #sys.stdout.write('save spectrum to demo.dat\n')
         for i in range(2):
             filename[i]='SN'+str(SN[i])+'_'+str(fileID)+'.mca'
         print("  saved in ",filename[0],"and",filename[1],end="\r")
-        spec0=dev0.spectrum(True, True)
-        spec1=dev1.spectrum(True, True)
-        #saveSpectrum(str(SN[0])+'_'+str(fileID)+'.mca', spec0[0])
-        rate[0]=ratecheck(spec0[0],presettime,0)
-        rate[1]=ratecheck(spec1[0],presettime,1)
-        #print(rate)
-
+        if active[0]:
+            spec0=dev0.spectrum(True, True)
+            rate[0]=ratecheck(spec0[0],presettime,0)
+            saveSpectrum(filename[0], spec0[0],status0,starttime,0)
+            saveRates(rate_filename[0], starttime,rate[0])
+                    
+        if active[1]:            
+            spec1=dev1.spectrum(True, True)
+            rate[1]=ratecheck(spec1[0],presettime,1)
+            saveSpectrum(filename[1], spec1[0],status1,starttime,1)
+            saveRates(rate_filename[1], starttime,rate[1])
         
-        saveSpectrum(filename[0], spec0[0],status0,starttime,0)
-        saveSpectrum(filename[1], spec1[0],status1,starttime,1)
-        for i in range(2):
-            saveRates(rate_filename[i], starttime,rate[i])
+        
+        #for i in range(2):
+            #saveRates(rate_filename[i], starttime,rate[i])
         
         if verbose:
-            config=dev0.reqHWConfig()
-            printConfig(config)
-            config=dev1.reqHWConfig()
-            printConfig(config)
+            if active[0]:
+                config=dev0.reqHWConfig()
+                printConfig(config)
+            if active[1]:
+                config=dev1.reqHWConfig()
+                printConfig(config)
         dev=None
         if(quit_flag or stop_flag):
             #termios.tcsetattr(fd, termios.TCSANOW, old)
+            #p_spec_monitor.kill()
             return(1)
             #done
         fileID=fileID+1
     #termios.tcsetattr(fd, termios.TCSANOW, old)
+    #p_spec_monitor.kill()
+    #p_spec_monitor.terminate()
     return(0)
     
 if __name__ == '__main__':
@@ -778,16 +875,34 @@ if __name__ == '__main__':
     monitor_thread = threading.Thread(target=key_monitor)
     monitor_thread.daemon = True  
     monitor_thread.start()
-    influx_thread0=threading.Thread(target=post_to_influx,args=(rate_filename[0],"he3_mca","daemon"),daemon=True)
-    influx_thread0.start()
-    influx_thread1=threading.Thread(target=post_to_influx,args=(rate_filename[1],"NaI","daemon"),daemon=True)
-    influx_thread1.start()
+    
+    datadir=os.getcwd()
+    cmd='xterm -e '+ROOT+' \''+SPECMONMACRO+'("/home/msgc/b4/20260324/tmp.mca")\''
+    #cmd='xterm -e root \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
+    print(cmd)
+    p_spec_monitor=subprocess.Popen(cmd, shell=True)
+    #print("subprocess:",p_spec_monitor)
+    #p_spec_monitor=spec_monitor(datadir)
+    #spec_monitor_thread = threading.Thread(target=spec_monitor(datadir))
+    #spec_monitor_thread.daemon = True  
+    #spec_monitor_thread.start()
+    #p_spec_monitor.kill()
+    if active[0]:
+        influx_thread0=threading.Thread(target=post_to_influx,args=(rate_filename[0],"he3_mca","daemon"),daemon=True)
+        influx_thread0.start()
+    if active[1]:
+        influx_thread1=threading.Thread(target=post_to_influx,args=(rate_filename[1],"NaI","daemon"),daemon=True)
+        influx_thread1.start()
     
     exit_code=mca8000d()
+    print("DAQ stopped.")
+    p_spec_monitor.kill()
+
     #exit_code=0
     if (verbose):
         print("exit_code",exit_code)
     termios.tcsetattr(fd, termios.TCSANOW, old)
+    #print(p_spec_monitor)
     sys.exit(exit_code)
     
     

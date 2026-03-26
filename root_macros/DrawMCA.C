@@ -8,14 +8,14 @@
 
 int DrawMCA(){
 	const int MCACh = 8191;
-	const int header = 0;
+	const int header = 12;
 	TH1D* hist = new TH1D("hist","hist",MCACh,0,MCACh);
 
 	double val;
 	string str;
 	//ifstream ifs("718.dat");
 	//ifstream ifs("794.dat");
-	ifstream ifs("demo1.dat");
+	ifstream ifs("SN718_0.mca");
  
 	for(int ich=0; ich<header; ++ich){
 	  //		ifs >> sval;	

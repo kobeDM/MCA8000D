@@ -64,6 +64,7 @@ def print_runsummary(file):
 def post_to_influx(file,daemon):
     from influxdb import InfluxDBClient
     client = InfluxDBClient( host     = "10.37.0.214",port     = "8086",database= "miraclue" )
+    #client = InfluxDBClient( host     = "10.37.0.170",port     = "8086",database= "miraclue" )
     if(not os.path.isfile(file)):
         cmd="touch "+file
         subprocess.run(cmd, shell=True)

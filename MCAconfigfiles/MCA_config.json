@@ -1,12 +1,13 @@
 {
-    "general": {
+    "MCA": {
 	"MCA0": {
 	    "active": 1,
-	    "detector": "3He",
+	    "detector": "MWPC",
 	    "SN": 718,
 	    "threshold": 5,
 	    "MCAchannel": 8191,
-	    "dynamicrange": 1,
+	    "dynamicrange": 2,
+	    "_comment for dynamicrange":"1 for 1V, 2 for 10V",
 	    "ROI0_min": 0,
 	    "ROI0_max": 8191,
 	    "ROI1_min": 1024,
@@ -19,12 +20,13 @@
 	    "ROI4_max": 8191
 	},
 	"MCA1": {
-	    "active": 1,
+	    "active": 0,
 	    "detector": "NaI",
 	    "SN": 794,
 	    "threshold": 2,
 	    "MCAchannel": 8191,
-	    "dynamicrange": 10,
+	    "dynamicrange": 1,
+	    "_comment for dynamicrange":"1 for 1V, 2 for 10V",
 	    "ROI0_min": 0,
 	    "ROI0_max": 8191,
 	    "ROI1_min": 220,
@@ -37,5 +39,10 @@
 	    "ROI4_max": 8191
 	}
 
+    },
+    "INFLUXDB":{
+	"host":"10.37.0.170",
+	"port":"8086",
+	"database":"miraclue" 
     }
 }
