@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import os,subprocess
+import os,subprocess,psutil,signal
 import datetime
 import sys
 from datetime import timezone, timedelta
@@ -18,14 +18,15 @@ MCAbin=MCAdir+"bin/"
 MCAConfigs=MCAdir+"MCAconfigfiles/"
 MCAScripts=MCAdir+"scripts/"
 MCARootMacros=MCAdir+"root_macros/"
-
-
-
 readMCA="sudo "+MCAdir+"scripts/mca8000d.py"
 
 
 # configs
 CONFIG = "MCA_config.json"
+
+#for monitoring
+SPECMONMACRO=MCARootMacros+"MonMCA.C"
+TMP_FILE="tmp.mca"
 
 stop_flag = False
 
@@ -36,6 +37,24 @@ print("   runMCA.py  ")
 print("   MCA8000Ds DAQ for MIRACLUE-AIST2025  " )
 print("   2025 Oct by K. Miuchi")
 print("**********************************************************")
+
+def kill_specmon():
+    #exe= "root.exe"
+    #print("killing root spec monitor")    
+    processes = []
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            processes.append(proc.info)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    
+    for proc in processes:
+        if proc['name'] =="root.exe":
+            for cmdline in proc['cmdline']:
+                if TMP_FILE  in cmdline: 
+                    #print(f"PID: {proc['pid']}, Name: {proc['name']}, Name: {proc['cmdline']}")
+                    os.kill(proc['pid'],signal.SIGKILL)
+
 
 def make_new_period() -> str:
     p = 0
@@ -126,16 +145,11 @@ def run_daq(args):
         subprocess.run(cmd, shell=True)
         os.chdir(new_per)
         print("***********",new_per,"***********")
-        #runend=0
-        #thread1=threading.Thread(target=post_to_influx,args=(ratefile,"daemon"),daemon=True)
-        #thread1.start()
-        cmd=readMCA+" -c "+config_filename+" -p "+str(presettime)+" -f "+ str(num_file_per_period)
+        #cmd=readMCA+" -c "+config_filename+" -p "+str(presettime)+" -f "+ str(num_file_per_period)
+        cmd=readMCA+" -c "+config_filename+" -t "+TMP_FILE+" -p "+str(presettime)+" -f "+ str(num_file_per_period)
         print(cmd)
         cp=subprocess.run(cmd, shell=True)
         stop_flag=cp.returncode;
-        #    print("\nrun end")
-        #    print_runsummary(ratefile)
-        #    run=0
         os.chdir("../")
 
         
@@ -147,7 +161,11 @@ def main():
     parser.add_argument("-f", help="num of files per period", default=60)
     args = parser.parse_args()
 
-    running=1
+    cmd='mv -f '+TMP_FILE+' '+TMP_FILE+'.org'
+    subprocess.run(cmd, shell=True)
+    cmd='xterm -e root \''+SPECMONMACRO+'("'+TMP_FILE+'")\''
+    p_spec_monitor=subprocess.Popen(cmd, shell=True)
+    #    running=1
     try:
         run_daq(args)
     except KeyboardInterrupt:
@@ -155,6 +173,9 @@ def main():
         print("===========================")
         print("aborted DAQ")
         print("===========================")
+    
+    kill_specmon()
+    #print("Kill the root process manually.")
 
 main()
 

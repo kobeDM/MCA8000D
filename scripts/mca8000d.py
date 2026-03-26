@@ -3,19 +3,6 @@
 #  
 #  Original version:
 #  Copyright 2019 Henning Follmann <hfollmann@itcfollmann.com>
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """A USB interface to AMPTEK's MCA8000d"""  
 
@@ -43,10 +30,7 @@ HEADER_SIZE=12
 FOOTTER_SIZE=70
 
 CONFIG = "MCA_config.json"
-tmpfile="../tmp.mca"
-ROOT="/opt/root/6.32.08/bin/root"
-SPECMONMACRO="/home/msgc/MCA8000D/root_macros/MonMCA.C"
-
+TMP_FILE = "../tmp.mca"
 
 detector=['','']
 MCAchannel=[0,0]
@@ -84,42 +68,13 @@ def key_monitor():
             sys.stdout.write("s command was issued. Stopping the DAQ at the end of this file.")
             break
 
-def spec_monitor_kill(datadir):
-    print("spectrum monitor")
-    print(datadir)
-    tmpfile=datadir+"tmp./mca"
-    print(tmpfile)
-    #cmd='exec ' \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
-    print(cmd)
-    p=subprocess.Popen(cmd, shell=True)
-    print("subprocess:",p)
-    return p
-    #subprocess.run(cmd, shell=True)
-
-def spec_monitor_start(cmd):
-    print("spectrum monitor")
-    print(datadir)
-    tmpfile=datadir+"tmp./mca"
-    print(tmpfile)
-    cmd='exec /opt/root/6.32.08/bin/root \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
-    print(cmd)
-    p=subprocess.Popen(cmd, shell=True)
-    print("subprocess:",p)
-    return p
-    #subprocess.run(cmd, shell=True)
-
-    
 def post_to_influx(file,measurement,daemon):
-#def post_to_influx(file,measurement,daemon,host,port,database):
     from influxdb import InfluxDBClient
-    #client = InfluxDBClient( host     = "10.37.0.214",port     = "8086",database= "miraclue" )
-    #client = InfluxDBClient( host     = "10.37.0.170",port     = "8086",database= "miraclue" )
     client = InfluxDBClient( host= host,port= port,database= database)
-    print(" influxdb server: ",host,":",port)
     if(not os.path.isfile(file)):
         cmd="touch "+file
         subprocess.run(cmd, shell=True)
-    print(file,measurement)
+    print(" influxdb server: ",host,":",port," database:",database," measurement:",measurement)
     while(1):
         with open(file,'r') as f:
             reader=csv.reader(f,delimiter='\t')
@@ -127,7 +82,6 @@ def post_to_influx(file,measurement,daemon):
                 json_data = [
                     {
                         'measurement' : measurement,
-                        #'measurement' : 'he3_mca',
                         'fields' : {
                             'time_stamped'  : float(data[0]),
                             'event_rate_live'  : float(data[1]),
@@ -182,8 +136,6 @@ def threebytes2long(ba):
     """convert three bytes to integer"""
     num = int(ba[0]) + (int(ba[1]) * 256) + (int(ba[2]) * 65536)
     return num
-
-
 
 # pack message
 # message format:
@@ -659,12 +611,6 @@ def saveSpectrum(filename, spectrum,status,starttime,i):
         fh.write("FOOTTER\n")
     fh.write("<<DPP STATUS END>>\n")
     fh.close()
-        
-
-    
-
-
-
     
 def saveRates(filename,starttime, rate):
     fh = open(filename, "a")
@@ -690,26 +636,22 @@ def mca8000d():
     parser.add_argument("-p","--presettime", help="preset time for one file", default=60)
     parser.add_argument("-f", help="num of files per period", default=100)
     #parser.add_argument('-S', '--serialnumber',help='S/N', default=718,type=int)    
+    parser.add_argument("-t", help="temporary file name", default=TMP_FILE)
     args = parser.parse_args()
     config_filename = args.c
     presettime = int(args.presettime)
     num_file_per_period = int(args.f)
     verbose=args.verbose
+    tmpfile="../"+args.t
+
     #SN=args.serialnumber
 
-    #datadir=os.getcwd()
-    #cmd='exec /opt/root/6.32.08/bin/root \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
-    #print(cmd)
-    #p_spec_monitor=subprocess.Popen(cmd, shell=True)
-    
-    #p_spec_monitor.kill()
     filename=['','']
 
     #scan
-    print("activity",active)
-    #p_spec_monitor.kill()
+    #print("activity",active)
     if active[0]:
-        print("device 0 check...")
+        #        print("device 0 check...")
         dev = device(0)
         status = dev.reqStatus()
         thisSN=getSN(status)
@@ -720,7 +662,7 @@ def mca8000d():
             #dev1=dev
 
     if active[1]:
-        print("device 1 check...")
+        #print("device 1 check...")
         dev = device(1)
         status = dev.reqStatus()
         thisSN=getSN(status)
@@ -776,7 +718,6 @@ def mca8000d():
         dev1.setMCAchannel(MCAchannel[1]+1)
         dev1.setthreshold(threshold[1])
         dev1.setdynamicrange(dynamicrange[1])
-    #p_spec_monitor.kill()    
     fileID=0
     while(fileID < num_file_per_period):
         #print(" file",fileID,"/",num_file_per_period,end="")
@@ -791,18 +732,12 @@ def mca8000d():
             currentrealtime=status0.RealTime/1000
         elif  active[1]:
             currentrealtime=status1.RealTime/1000
-        #while ((status0.RealTime/1000)<presettime ):
         while ((currentrealtime)<presettime ):
             if quit_flag:
                 #sys.stdout.write("q command was issued. Quitting the DAQ.")
                 sys.stdout.flush()
                 break
             time.sleep(1)
-            #print("",ending=".")
-            #if(int(status0.RealTime/1000)%10==0):
-               #print(str(status0.RealTime/1000))
-               #sys.stdout.write('.')
-               #sys.stdout.flush()
             if active[0]:
                 status0=dev0.reqStatus()
                 currentrealtime=status0.RealTime/1000
@@ -819,22 +754,21 @@ def mca8000d():
                 if(int(status1.RealTime/1000)%10==0):
                     print(" file:",fileID,"/",num_file_per_period,end="")
                     print(" time:",str(int(status1.RealTime/1000)),"/",str(presettime),end="\r")
-                #spec1=dev1.spectrum(True, True)
-                #saveSpectrum(tmpfile, spec1[0],status1,starttime,1)
 
-        #
-        #sys.stdout.write('\n')
-        #sys.stdout.write(' done\n')
         if active[0]:
             status0=dev0.reqStatus()
             dev0.disable_MCA_MCS()
         if active[1]:
             status1=dev1.reqStatus()
             dev1.disable_MCA_MCS()
-        #sys.stdout.write('save spectrum to demo.dat\n')
+        
         for i in range(2):
-            filename[i]='SN'+str(SN[i])+'_'+str(fileID)+'.mca'
-        print("  saved in ",filename[0],"and",filename[1],end="\r")
+            if active[i]:
+                filename[i]='SN'+str(SN[i])+'_'+str(fileID)+'.mca'
+                print("  saved in ",filename[i])
+                
+        #print("  saved in ",filename[0],"and",filename[1],end="\r")
+        #print("  saved in ",filename[0],"and",filename[1])
         if active[0]:
             spec0=dev0.spectrum(True, True)
             rate[0]=ratecheck(spec0[0],presettime,0)
@@ -860,14 +794,9 @@ def mca8000d():
                 printConfig(config)
         dev=None
         if(quit_flag or stop_flag):
-            #termios.tcsetattr(fd, termios.TCSANOW, old)
-            #p_spec_monitor.kill()
             return(1)
             #done
         fileID=fileID+1
-    #termios.tcsetattr(fd, termios.TCSANOW, old)
-    #p_spec_monitor.kill()
-    #p_spec_monitor.terminate()
     return(0)
     
 if __name__ == '__main__':
@@ -876,17 +805,6 @@ if __name__ == '__main__':
     monitor_thread.daemon = True  
     monitor_thread.start()
     
-    datadir=os.getcwd()
-    cmd='xterm -e '+ROOT+' \''+SPECMONMACRO+'("/home/msgc/b4/20260324/tmp.mca")\''
-    #cmd='xterm -e root \'/home/msgc/MCA8000D/root_macros/MonMCA.C("/home/msgc/b4/20260324/tmp.mca")\''
-    print(cmd)
-    p_spec_monitor=subprocess.Popen(cmd, shell=True)
-    #print("subprocess:",p_spec_monitor)
-    #p_spec_monitor=spec_monitor(datadir)
-    #spec_monitor_thread = threading.Thread(target=spec_monitor(datadir))
-    #spec_monitor_thread.daemon = True  
-    #spec_monitor_thread.start()
-    #p_spec_monitor.kill()
     if active[0]:
         influx_thread0=threading.Thread(target=post_to_influx,args=(rate_filename[0],"he3_mca","daemon"),daemon=True)
         influx_thread0.start()
@@ -896,13 +814,11 @@ if __name__ == '__main__':
     
     exit_code=mca8000d()
     print("DAQ stopped.")
-    p_spec_monitor.kill()
 
-    #exit_code=0
     if (verbose):
         print("exit_code",exit_code)
     termios.tcsetattr(fd, termios.TCSANOW, old)
-    #print(p_spec_monitor)
+
     sys.exit(exit_code)
     
     
