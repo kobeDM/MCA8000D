@@ -9,7 +9,7 @@ config fileを編集することで設定変更可能
 defaultでは60秒ごとに1file作る。defaultではSN???_?.mcaというfileを作って行く。
 
 解析
-~/MCA8000D/root_macros/DrawMCA.C　を編集してみたいfileを見る。
+"~/MCA8000D/root_macros/DrawMCA.C　を編集してみたいfileを見る。"
 $ root ‘~/MCA8000D/root_macros/DrawMCAs.C(“SN???”,#)’ 現在のdirectoryでSN???_*.mca というfileの#個分のfileを足し上げる　結果はSN???.root　として保存される。
 $ root '~/MCA8000D/root_macros/hist_comp.C("ROOTFILE1","ROOTFILE2")‘
 　　ROOTFILE1　と　ROOTFILE2を比較できる
