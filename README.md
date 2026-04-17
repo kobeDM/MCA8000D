@@ -1,3 +1,5 @@
+#kobeDM/MCAsに統合しましたので今後そちらを使用してください。(20260418)
+
 # MCA8000D
 python driver for MCA8000D DAQ
 original driver: https://github.com/HenningFo/mca8000d
